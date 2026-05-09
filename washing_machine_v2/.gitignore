@@ -1,0 +1,16 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# Dart/Pub package cache
+/.pub-cache/
+/src/.dart_tool/
+
+# Local build/download cache
+/.cache/
+
+# Native libraries generated at the project root
+/*.dll
+
+# Generated Dart files in src/lib
+/src/lib/**/*.g.dart
