@@ -1,0 +1,18 @@
+{
+    "name": "vhdl-dev",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "features": {},
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "VHDL-LS.rust_hdl",
+                "ms-vscode.makefile-tools",
+                "eamodio.gilens"
+            ]
+        }
+    },
+    "postCreateCommand": "ghdl --version",
+    "remoteUser": "vscode"
+}

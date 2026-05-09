@@ -1,0 +1,9 @@
+# Godot-generated UID sidecar files
+*.uid
+
+# Previous washing machine project
+/washing_machine/
+
+# Native libraries generated in washing_machine_v2
+/washing_machine_v2/**/*.so
+/washing_machine_v2/**/*.dylib
