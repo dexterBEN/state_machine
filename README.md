@@ -2,14 +2,13 @@
 
 A learning project focused on FPGA, VHDL and embedded systems concepts using the PYNQ-Z2 board.
 
-The goal of this project is to progressively rebuild and modernize knowledge acquired during a DUT GEII degree, especially around:
+The goal of this project is to progressively rebuild and modernize knowledge acquired during university, especially around:
 
 - Finite State Machines (FSM)
 - FPGA development
 - Hardware description languages (VHDL)
 - Digital design
 - Embedded systems
-- Hardware/software interaction
 
 ---
 
