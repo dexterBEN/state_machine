@@ -16,7 +16,7 @@ The goal of this project is to progressively rebuild and modernize knowledge acq
 
 This project implements a simplified washing machine controller as a Finite State Machine (FSM).
 
-The FSM was first implemented in Python using the PYNQ framework, then rewritten entirely in VHDL and synthesized directly onto the FPGA fabric of the PYNQ-Z2 board.
+The FSM was first implemented in Python using the PYNQ framework, then re-written entirely in VHDL and synthesized directly onto the FPGA of the PYNQ-Z2 board.
 
 The current implementation includes:
 
