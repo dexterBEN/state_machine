@@ -49,7 +49,7 @@ DONE
 
 <img width="1600" height="951" alt="image" src="https://github.com/user-attachments/assets/6fbbdf95-37f6-4c39-a57b-1d39f1905668" />
 
-The current system is split between the Zynq Processing System (PS), the Programmable Logic (PL), and an external Godot/Dart frontend.
+The current system is split between the Zynq Processing System (PS), the Programmable Logic (PL), and an external Godot/Dart frontend using [godot_dart_package](https://github.com/fuzzybinary/godot_dart).
 
 The VHDL FSM runs in the FPGA and exposes its current state through a 4-bit `state_code` signal. This signal is connected to an AXI GPIO peripheral, which makes the value available to the ARM Cortex-A9 processor through a memory-mapped register.
 
