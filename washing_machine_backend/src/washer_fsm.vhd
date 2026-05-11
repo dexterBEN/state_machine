@@ -12,10 +12,12 @@ entity washer_fsm is
         reset : in  std_logic;
         start : in  std_logic;
 
-        fill_valve : out std_logic; -- LD0
-        motor      : out std_logic; -- LD1
-        pump       : out std_logic; -- LD2
-        done_led   : out std_logic  -- LD3
+        fill_valve : out std_logic; -- LD0;
+        motor      : out std_logic; -- LD1;
+        pump       : out std_logic; -- LD2;
+        done_led   : out std_logic;  -- LD3;
+
+        state_code : out std_logic_vector(3 downto 0)
     );
 end washer_fsm;
 
@@ -54,7 +56,7 @@ begin
     ----------------------------------------------------
     process(clk, reset)
     begin
-        if reset = '1' then
+        if reset = '0' then
             start_sync_0 <= '0';
             start_sync_1 <= '0';
             start_prev   <= '0';
@@ -73,7 +75,7 @@ begin
     ----------------------------------------------------
     process(clk, reset)
     begin
-        if reset = '1' then
+        if reset = '0' then
             tick_counter <= 0;
             tick_1hz     <= '0';
         elsif rising_edge(clk) then
@@ -92,7 +94,7 @@ begin
     ----------------------------------------------------
     process(clk, reset)
     begin
-        if reset = '1' then
+        if reset = '0' then
             state <= IDLE;
         elsif rising_edge(clk) then
             state <= next_state;
@@ -104,7 +106,7 @@ begin
     ----------------------------------------------------
     process(clk, reset)
     begin
-        if reset = '1' then
+        if reset = '0' then
             state_counter <= 0;
         elsif rising_edge(clk) then
             if state /= next_state then
@@ -169,5 +171,18 @@ begin
     motor      <= '1' when (state = WASH  or state = DONE) else '0'; -- LD1
     pump       <= '1' when (state = RINSE or state = DONE) else '0'; -- LD2
     done_led   <= '1' when (state = SPIN  or state = DONE) else '0'; -- LD3
+
+    ----------------------------------------------------
+    -- state encoding for AXI GPIO / MMIO
+    ----------------------------------------------------
+    with state select
+    state_code <=
+        "0000" when IDLE,
+        "0001" when FILL,
+        "0010" when WASH,
+        "0011" when RINSE,
+        "0100" when SPIN,
+        "0101" when DONE,
+        "1111" when others;
 
 end rtl;
