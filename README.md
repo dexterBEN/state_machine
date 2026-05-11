@@ -78,3 +78,10 @@ The current state encoding is:
 0x4 -> SPIN
 0x5 -> DONE
 ```
+
+---
+
+## Sample (Demo)
+
+https://github.com/user-attachments/assets/21aa9df7-122b-413c-b344-21ffcb42ca82
+
