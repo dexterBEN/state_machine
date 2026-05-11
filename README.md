@@ -42,3 +42,9 @@ RINSE
 SPIN
 DONE
 ```
+
+---
+
+## Current Architecture
+
+<img width="1600" height="951" alt="image" src="https://github.com/user-attachments/assets/6fbbdf95-37f6-4c39-a57b-1d39f1905668" />
