@@ -6,7 +6,15 @@ import './washer_body.dart';
 
 part 'washer_hatch.g.dart';
 
-/// FSM states (visual side)
+/// FSM states on the visual/frontend side.
+///
+/// This enum should stay aligned with the VHDL FSM state_code mapping:
+/// 0 = idle
+/// 1 = fill
+/// 2 = wash
+/// 3 = rinse
+/// 4 = spin
+/// 5 = done
 enum WasherState { idle, fill, wash, rinse, spin, done }
 
 @GodotScript()
@@ -15,33 +23,96 @@ class WasherHatch extends Node2D {
   late final ExtensionTypeInfo<WasherHatch> typeInfo = WasherHatch.sTypeInfo;
 
   @pragma('vm:entry-point')
-  static final ExtensionTypeInfo<WasherHatch> sTypeInfo = _$WasherHatchTypeInfo();
+  static final ExtensionTypeInfo<WasherHatch> sTypeInfo =
+      _$WasherHatchTypeInfo();
 
   WasherHatch() : super();
-  WasherHatch.withNonNullOwner(Pointer<Void> owner) : super.withNonNullOwner(owner);
 
-  // --- Scene wiring
+  WasherHatch.withNonNullOwner(Pointer<Void> owner)
+      : super.withNonNullOwner(owner);
+
+  // ---------------------------------------------------------------------------
+  // Scene wiring
+  // ---------------------------------------------------------------------------
+
+  /// The WasherBody node is used as the geometric reference.
+  ///
+  /// WasherBody gives us:
+  /// - hatch center
+  /// - hatch tilt
+  /// - hatch scale
   NodePath bodyPath = NodePath.fromString('../WasherBody');
+
+  /// Keep true while you are tweaking WasherBody geometry.
+  /// Once the layout is stable, this can be set to false for fewer updates.
   bool autoAlignEachFrame = true;
 
-  // --- Geometry
-  double outerRadius = 88;
+  // ---------------------------------------------------------------------------
+  // Geometry
+  // ---------------------------------------------------------------------------
+
+  /// Smaller than the previous value.
+  ///
+  /// Previous value: 92
+  /// New value: 78
+  ///
+  /// This makes the hatch closer to the Dribbble reference:
+  /// visible, but not oversized compared to the front face.
+  double outerRadius = 82.0;
+
+  /// Slightly thinner ring.
+  ///
+  /// Previous value: 16
+  /// New value: 14
   double ringThickness = 14.0;
 
-  // --- Colors (keep your palette)
-  final Color rimOuter = Color.fromRGBA(0.80, 0.77, 0.91, 1.0);
-  final Color rimInner = Color.fromRGBA(0.70, 0.67, 0.84, 1.0);
-  final Color rimSoft = Color.fromRGBA(0.90, 0.87, 0.96, 0.95);
+  /// The local drawing is intentionally circular.
+  ///
+  /// The isometric squash is applied by WasherBody through:
+  /// setScale(n.getHatchScale()).
+  ///
+  /// This keeps the hatch reusable and lets the body decide how much
+  /// perspective/tilt to apply.
+  double glassInset = 2.0;
 
-  final Color glassBase = Color.fromRGBA(0.69, 0.75, 0.81, 0.90);
-  final Color glassWash = Color.fromRGBA(0.80, 0.86, 0.91, 0.08);
+  // ---------------------------------------------------------------------------
+  // Palette
+  // ---------------------------------------------------------------------------
 
-  final Color highlightA = Color.fromRGBA(0.90, 0.95, 0.98, 0.32);
-  final Color highlightB = Color.fromRGBA(0.93, 0.97, 0.99, 0.28);
+  // Pastel rim colors.
+  final Color rimShadow = Color.fromRGBA(0.38, 0.30, 0.52, 0.10);
+  final Color rimOuter = Color.fromRGBA(0.76, 0.70, 0.95, 1.0);
+  final Color rimSoft = Color.fromRGBA(0.88, 0.84, 0.99, 1.0);
+  final Color rimInner = Color.fromRGBA(0.66, 0.60, 0.84, 1.0);
+  final Color rimInnerLight = Color.fromRGBA(0.79, 0.76, 0.91, 1.0);
 
-  final Color doorShadow = Color.fromRGBA(0.15, 0.14, 0.22, 0.02);
+  // Glass colors.
+  final Color glassBase = Color.fromRGBA(0.56, 0.69, 0.80, 0.88);
+  final Color glassShade = Color.fromRGBA(0.34, 0.45, 0.56, 0.12);
+  final Color glassWash = Color.fromRGBA(0.88, 0.95, 1.0, 0.13);
 
-  // --- Animation / State
+  // Highlights.
+  final Color highlightA = Color.fromRGBA(0.96, 0.99, 1.0, 0.38);
+  final Color highlightB = Color.fromRGBA(0.98, 0.995, 1.0, 0.22);
+  final Color highlightC = Color.fromRGBA(0.96, 0.99, 1.0, 0.08);
+
+  // Liquids / bubbles.
+  final Color waterTop = Color.fromRGBA(0.64, 0.80, 0.92, 0.30);
+  final Color waterBottom = Color.fromRGBA(0.42, 0.63, 0.80, 0.52);
+  final Color bubbleCol = Color.fromRGBA(0.96, 0.99, 1.0, 0.16);
+
+  // Rotor / spin blur.
+  final Color rotorCol = Color.fromRGBA(0.77, 0.87, 0.97, 0.28);
+  final Color rotorFastCol = Color.fromRGBA(0.84, 0.92, 0.99, 0.18);
+
+  // Steam / mist.
+  final Color steamCol = Color.fromRGBA(0.90, 0.96, 0.99, 0.14);
+  final Color steamCoreCol = Color.fromRGBA(0.98, 0.995, 1.0, 0.10);
+
+  // ---------------------------------------------------------------------------
+  // Animation / State
+  // ---------------------------------------------------------------------------
+
   WasherState _state = WasherState.idle;
 
   double _spinSpeed = 0.0;
@@ -49,65 +120,72 @@ class WasherHatch extends Node2D {
   double _drumAngle = 0.0;
 
   bool animationsEnabled = true;
+
+  /// Higher = faster interpolation to the target spin speed.
   double spinEaseK = 10.0;
 
-  // Water / foam (0..1)
+  /// Water amount from 0 to 1.
   double _waterLevel = 0.0;
   double _targetWaterLevel = 0.0;
   double waterEaseK = 6.0;
 
+  /// Foam/bubbles amount from 0 to 1.
   double _foam = 0.0;
   double _targetFoam = 0.0;
   double foamEaseK = 6.0;
 
+  /// Steam/mist amount from 0 to roughly 1.
   double _steam = 0.0;
   double _targetSteam = 0.0;
   double steamEaseK = 8.0;
 
+  /// Generic time accumulator for procedural effects.
   double _t = 0.0;
 
-  // --- Public API
+  // ---------------------------------------------------------------------------
+  // Public API
+  // ---------------------------------------------------------------------------
+
   void setState(WasherState s) {
     _state = s;
 
     switch (_state) {
+      case WasherState.idle:
+        _targetWaterLevel = 0.0;
+        _targetFoam = 0.0;
+        _targetSpinSpeed = 0.0;
+        _targetSteam = 0.0;
+        break;
+
       case WasherState.fill:
-        _targetWaterLevel = 0.65;
+        _targetWaterLevel = 0.58;
         _targetFoam = 0.0;
         _targetSpinSpeed = 0.0;
         _targetSteam = 0.0;
         break;
 
       case WasherState.wash:
-        _targetWaterLevel = 0.55;
-        _targetFoam = 0.8;
-        _targetSpinSpeed = 1.2;
+        _targetWaterLevel = 0.52;
+        _targetFoam = 0.65;
+        _targetSpinSpeed = 1.15;
         _targetSteam = 0.0;
         break;
 
       case WasherState.rinse:
-        _targetWaterLevel = 0.60;
-        _targetFoam = 0.25;
-        _targetSpinSpeed = 1.6;
-        _targetSteam = 1.35;
+        _targetWaterLevel = 0.56;
+        _targetFoam = 0.22;
+        _targetSpinSpeed = 1.45;
+        _targetSteam = 0.85;
         break;
 
       case WasherState.spin:
-        _targetWaterLevel = 0.10;
+        _targetWaterLevel = 0.08;
         _targetFoam = 0.0;
-        _targetSpinSpeed = 5.5;
+        _targetSpinSpeed = 5.2;
         _targetSteam = 0.0;
         break;
 
-      // case WasherState.drain:
-      //   _targetWaterLevel = 0.0;
-      //   _targetFoam = 0.0;
-      //   _targetSpinSpeed = 0.4;
-      //   _targetSteam = 0.0;
-      //   break;
-
       case WasherState.done:
-      case WasherState.idle:
         _targetWaterLevel = 0.0;
         _targetFoam = 0.0;
         _targetSpinSpeed = 0.0;
@@ -120,39 +198,55 @@ class WasherHatch extends Node2D {
 
   WasherState getState() => _state;
 
-  void setTargetSpinSpeed(double radPerSec) => _targetSpinSpeed = radPerSec;
+  void setTargetSpinSpeed(double radPerSec) {
+    _targetSpinSpeed = radPerSec;
+  }
+
   double getSpinSpeed() => _spinSpeed;
 
-  // --- Lifecycle
+  // ---------------------------------------------------------------------------
+  // Lifecycle
+  // ---------------------------------------------------------------------------
+
   @override
   void vReady() {
     _alignToBody();
-    // IMPORTANT: ne force pas un état ici, laisse ton futur controller/bloc piloter.
+
+    // do not force an initial state here.
+    // controller / BLoC / WebSocket layer should drive the state.
     queueRedraw();
   }
 
   @override
   void vProcess(double delta) {
-    if (autoAlignEachFrame) _alignToBody();
-    if (!animationsEnabled) return;
+    if (autoAlignEachFrame) {
+      _alignToBody();
+    }
+
+    if (!animationsEnabled) {
+      return;
+    }
 
     _t += delta;
 
-    // Smooth spin
+    // Smooth spin speed.
     final aSpin = 1.0 - math.exp(-spinEaseK * delta);
     _spinSpeed = _spinSpeed + (_targetSpinSpeed - _spinSpeed) * aSpin;
+
     _drumAngle += _spinSpeed * delta;
     if (_drumAngle.abs() > 100000.0) {
       _drumAngle = _drumAngle % (2.0 * math.pi);
     }
 
-    // Smooth water/foam
+    // Smooth water.
     final aw = 1.0 - math.exp(-waterEaseK * delta);
     _waterLevel = _waterLevel + (_targetWaterLevel - _waterLevel) * aw;
 
+    // Smooth foam.
     final af = 1.0 - math.exp(-foamEaseK * delta);
     _foam = _foam + (_targetFoam - _foam) * af;
 
+    // Smooth steam.
     final as = 1.0 - math.exp(-steamEaseK * delta);
     _steam = _steam + (_targetSteam - _steam) * as;
 
@@ -162,63 +256,79 @@ class WasherHatch extends Node2D {
   void _alignToBody() {
     final n = getNodeOrNull(bodyPath);
     if (n is! WasherBody) return;
+
     setGlobalPosition(n.getHatchCenterWorld());
     setRotation(n.getHatchTiltRad());
     setScale(n.getHatchScale());
   }
 
-  // --- Draw
+  // ---------------------------------------------------------------------------
+  // Draw
+  // ---------------------------------------------------------------------------
+
   @override
   void vDraw() {
     final c = Vector2(x: 0, y: 0);
-    final innerR = math.max(0.0, outerRadius - ringThickness);
-    final glassR = innerR - 2.5;
 
-    // Door cast shadow
+    final innerR = math.max(0.0, outerRadius - ringThickness);
+    final glassR = math.max(0.0, innerR - glassInset);
+
+    // Soft cast shadow behind the door.
     _drawEllipseFilledLocal(
-      center: Vector2(x: 2, y: 4),
-      rx: outerRadius * 0.93,
-      ry: outerRadius * 0.84,
-      color: doorShadow,
+      center: Vector2(x: 4.0, y: 5.5),
+      rx: outerRadius * 1.03,
+      ry: outerRadius * 0.91,
+      color: rimShadow,
       steps: 72,
     );
 
-    // Rims
+    // Main rim stack.
     drawCircle(c, outerRadius, rimOuter);
     drawCircle(c, outerRadius - 3.0, rimSoft);
     drawCircle(c, innerR, rimInner);
-    drawCircle(c, innerR - 2.0, Color.fromRGBA(0.77, 0.75, 0.89, 1.0));
+    drawCircle(c, innerR - 2.0, rimInnerLight);
 
-    // Glass base
+    // Glass base.
     drawCircle(c, glassR, glassBase);
 
-    // ✅ Eau + bulles d'abord (pour que le voile unifie ensuite)
+    // Soft inner shade to avoid a flat circle.
+    drawCircle(
+      c + Vector2(x: -5.0, y: 3.0),
+      glassR * 0.86,
+      glassShade,
+    );
+
+    // Water and bubbles are drawn before the glass veil.
     _drawWater(c, glassR - 6.0);
     _drawBubbles(c, glassR - 10.0);
 
-    // Voile de verre ensuite
+    // Slight glass veil above water/foam.
     drawCircle(c, glassR - 4.0, glassWash);
 
-    // Spin rotor inside the drum (subtle at low speed, strong in spin).
+    // Rotor / motion blur.
     _drawSpinRotor(c, glassR - 6.0);
 
-    // Highlights au-dessus
+    // Highlights above everything.
     _drawGlassHighlights(c, glassR);
 
-    // Steam only for rinse transition / rinse state.
+    // Steam / mist.
     _drawSteam(c, outerRadius);
   }
 
-  // --- Water (clipped to ellipse)
+  // ---------------------------------------------------------------------------
+  // Water
+  // ---------------------------------------------------------------------------
+
   void _drawWater(Vector2 c, double r) {
     if (_waterLevel <= 0.001) return;
 
-    final wobble = (_state == WasherState.wash || _state == WasherState.rinse)
-        ? math.sin(_t * 2.0) * 4.0
-        : 0.0;
+    final shouldWobble =
+        _state == WasherState.wash || _state == WasherState.rinse;
 
-    final rx = r * 0.98;
-    final ry = r * 0.84;
+    final wobble = shouldWobble ? math.sin(_t * 2.1) * 3.2 : 0.0;
+
+    final rx = r * 0.96;
+    final ry = r * 0.82;
 
     final top = c.y - ry;
     final bot = c.y + ry;
@@ -228,24 +338,44 @@ class WasherHatch extends Node2D {
     final poly = _ellipseSegmentBelowY(c, rx, ry, lineY, steps: 96);
     if (poly.size() < 3) return;
 
-    // ✅ Gradient plus visible
     final cols = PackedColorArray();
     for (int i = 0; i < poly.size(); i++) {
       final p = poly[i];
-      final t = ((p.y - top) / (bot - top)).clamp(0.0, 1.0);
-      final a = 0.28 + t * 0.32; // 0.28..0.60 (plus présent)
-      cols.append(Color.fromRGBA(0.50, 0.70, 0.86, a));
+      final tt = ((p.y - top) / (bot - top)).clamp(0.0, 1.0);
+
+      final a = 0.24 + tt * 0.28;
+      final col = Color.fromRGBA(
+        waterTop.r + (waterBottom.r - waterTop.r) * tt,
+        waterTop.g + (waterBottom.g - waterTop.g) * tt,
+        waterTop.b + (waterBottom.b - waterTop.b) * tt,
+        a,
+      );
+
+      cols.append(col);
     }
+
     drawPolygon(poly, cols);
 
-    // ✅ Surface highlight plus lisible
+    // Water surface highlight.
     drawLine(
-      Vector2(x: c.x - rx * 0.56, y: lineY),
-      Vector2(x: c.x + rx * 0.56, y: lineY),
-      Color.fromRGBA(0.90, 0.97, 0.99, 0.22),
-      width: 3.0,
+      Vector2(x: c.x - rx * 0.52, y: lineY),
+      Vector2(x: c.x + rx * 0.52, y: lineY),
+      Color.fromRGBA(0.92, 0.98, 1.0, 0.20),
+      width: 2.4,
       antialiased: true,
     );
+
+    // Small secondary wave during wash/rinse.
+    if (shouldWobble) {
+      final waveY = lineY + math.sin(_t * 3.4) * 2.0 + 5.0;
+      drawLine(
+        Vector2(x: c.x - rx * 0.36, y: waveY),
+        Vector2(x: c.x + rx * 0.34, y: waveY + math.cos(_t * 2.0) * 1.5),
+        Color.fromRGBA(0.92, 0.98, 1.0, 0.08),
+        width: 1.4,
+        antialiased: true,
+      );
+    }
   }
 
   PackedVector2Array _ellipseSegmentBelowY(
@@ -256,6 +386,7 @@ class WasherHatch extends Node2D {
     int steps = 72,
   }) {
     final ellipse = <Vector2>[];
+
     for (int i = 0; i < steps; i++) {
       final t = (i / steps) * 2.0 * math.pi;
       ellipse.add(Vector2(
@@ -265,6 +396,7 @@ class WasherHatch extends Node2D {
     }
 
     final pts = <Vector2>[];
+
     for (int i = 0; i < ellipse.length; i++) {
       final p0 = ellipse[i];
       final p1 = ellipse[(i + 1) % ellipse.length];
@@ -272,10 +404,13 @@ class WasherHatch extends Node2D {
       final below0 = p0.y >= cutY;
       final below1 = p1.y >= cutY;
 
-      if (below0) pts.add(p0);
+      if (below0) {
+        pts.add(p0);
+      }
 
       if (below0 != below1) {
-        final dy = (p1.y - p0.y);
+        final dy = p1.y - p0.y;
+
         if (dy.abs() > 1e-6) {
           final tt = (cutY - p0.y) / dy;
           final ix = p0.x + (p1.x - p0.x) * tt;
@@ -288,36 +423,49 @@ class WasherHatch extends Node2D {
     for (final p in pts) {
       out.append(p);
     }
+
     return out;
   }
 
-  // --- Bubbles
+  // ---------------------------------------------------------------------------
+  // Bubbles
+  // ---------------------------------------------------------------------------
+
   void _drawBubbles(Vector2 c, double r) {
     if (_foam <= 0.01) return;
 
-    final n = (6 + _foam * 10).toInt();
+    final n = (5 + _foam * 9).toInt();
+
     for (int i = 0; i < n; i++) {
-      final a = (i * 1.7) + _t * 0.6;
-      final px = c.x + math.cos(a) * r * (0.15 + (i % 5) * 0.12);
-      final py = c.y + math.sin(a * 1.3) * r * (0.10 + (i % 3) * 0.18);
-      final rad = 3.0 + (i % 4) * 2.2;
+      final a = (i * 1.73) + _t * 0.7;
+      final px = c.x + math.cos(a) * r * (0.12 + (i % 5) * 0.115);
+      final py = c.y + math.sin(a * 1.27) * r * (0.10 + (i % 3) * 0.16);
+
+      final rad = 2.4 + (i % 4) * 1.8;
+      final alpha = 0.05 + _foam * 0.10;
 
       drawCircle(
         Vector2(x: px, y: py),
         rad,
-        Color.fromRGBA(0.95, 0.98, 0.99, 0.08 + _foam * 0.10),
+        Color.fromRGBA(bubbleCol.r, bubbleCol.g, bubbleCol.b, alpha),
       );
     }
   }
 
-  // --- Glass highlights (slightly animated during spin)
-  void _drawGlassHighlights(Vector2 c, double r) {
-    var slant = Vector2(x: -0.43, y: 0.90);
+  // ---------------------------------------------------------------------------
+  // Glass highlights
+  // ---------------------------------------------------------------------------
 
+  void _drawGlassHighlights(Vector2 c, double r) {
+    // Reference-style diagonal reflection.
+    var slant = Vector2(x: -0.38, y: 0.92);
+
+    // During fast spin, the reflections move subtly.
     if (_state == WasherState.spin || _spinSpeed > 2.0) {
-      final rot = _drumAngle * 0.15;
+      final rot = _drumAngle * 0.12;
       final cs = math.cos(rot);
       final sn = math.sin(rot);
+
       slant = Vector2(
         x: slant.x * cs - slant.y * sn,
         y: slant.x * sn + slant.y * cs,
@@ -326,88 +474,115 @@ class WasherHatch extends Node2D {
 
     final ortho = Vector2(x: -slant.y, y: slant.x);
 
-    final base = c + Vector2(x: -r * 0.08, y: -r * 0.03);
-    final lenA = r * 0.84;
-    final lenB = r * 0.46;
-    final wA = r * 0.12;
-    final wB = r * 0.036;
+    // Big reflection.
+    final base = c + Vector2(x: -r * 0.12, y: -r * 0.01);
+    final lenA = r * 0.78;
+    final wA = r * 0.11;
 
     final a0 = base + slant * (-lenA * 0.52) + ortho * wA;
     final a1 = base + slant * (lenA * 0.48) + ortho * wA;
     final a2 = base + slant * (lenA * 0.48) - ortho * wA;
     final a3 = base + slant * (-lenA * 0.52) - ortho * wA;
+
     _drawQuad(a0, a1, a2, a3, highlightA);
 
-    final base2 = base + Vector2(x: r * 0.27, y: -r * 0.06);
+    // Thin reflection.
+    final base2 = base + Vector2(x: r * 0.28, y: -r * 0.07);
+    final lenB = r * 0.44;
+    final wB = r * 0.035;
+
     final b0 = base2 + slant * (-lenB * 0.52) + ortho * wB;
     final b1 = base2 + slant * (lenB * 0.48) + ortho * wB;
     final b2 = base2 + slant * (lenB * 0.48) - ortho * wB;
     final b3 = base2 + slant * (-lenB * 0.52) - ortho * wB;
+
     _drawQuad(b0, b1, b2, b3, highlightB);
 
-    final base3 = base2 + Vector2(x: r * 0.06, y: -r * 0.01);
-    final lenC = r * 0.42;
-    final wC = r * 0.028;
+    // Very subtle third glint.
+    final base3 = base2 + Vector2(x: r * 0.07, y: -r * 0.01);
+    final lenC = r * 0.34;
+    final wC = r * 0.022;
+
     final c0 = base3 + slant * (-lenC * 0.52) + ortho * wC;
     final c1 = base3 + slant * (lenC * 0.48) + ortho * wC;
     final c2 = base3 + slant * (lenC * 0.48) - ortho * wC;
     final c3 = base3 + slant * (-lenC * 0.52) - ortho * wC;
-    _drawQuad(c0, c1, c2, c3, Color.fromRGBA(0.93, 0.97, 0.99, 0.07));
+
+    _drawQuad(c0, c1, c2, c3, highlightC);
   }
+
+  // ---------------------------------------------------------------------------
+  // Steam / mist
+  // ---------------------------------------------------------------------------
 
   void _drawSteam(Vector2 c, double r) {
     if (_steam <= 0.01) return;
 
     final innerR = math.max(0.0, r - ringThickness - 8.0);
-    final plumeCount = 10;
+    const plumeCount = 8;
+
     for (int i = 0; i < plumeCount; i++) {
-      final phase = _t * 2.0 + i * 0.72;
-      final ring = 0.18 + (i % 5) * 0.12;
+      final phase = _t * 1.8 + i * 0.72;
+      final ring = 0.18 + (i % 5) * 0.11;
       final swirl = phase + i * 0.35;
+
       final x = c.x + math.cos(swirl) * innerR * ring * 0.95;
-      final y = c.y + math.sin(swirl * 1.15) * innerR * ring * 0.75 - innerR * 0.10;
-      final rx = 9.0 + (i % 4) * 2.1;
-      final ry = 5.0 + (i % 3) * 1.4;
-      final alpha = (0.16 + i * 0.010) * _steam;
+      final y =
+          c.y + math.sin(swirl * 1.15) * innerR * ring * 0.72 - innerR * 0.08;
+
+      final rx = 7.0 + (i % 4) * 1.8;
+      final ry = 4.2 + (i % 3) * 1.2;
+
+      final alpha = (0.10 + i * 0.008) * _steam;
 
       _drawEllipseFilledLocal(
         center: Vector2(x: x, y: y),
         rx: rx,
         ry: ry,
-        color: Color.fromRGBA(0.90, 0.95, 0.99, alpha),
+        color: Color.fromRGBA(steamCol.r, steamCol.g, steamCol.b, alpha),
         steps: 42,
       );
 
-      // Inner brighter core to keep the steam visible inside the glass.
       _drawEllipseFilledLocal(
         center: Vector2(x: x + 0.4, y: y - 0.5),
         rx: rx * 0.52,
         ry: ry * 0.52,
-        color: Color.fromRGBA(0.98, 0.99, 1.0, alpha * 0.62),
+        color: Color.fromRGBA(
+          steamCoreCol.r,
+          steamCoreCol.g,
+          steamCoreCol.b,
+          alpha * 0.55,
+        ),
         steps: 32,
       );
     }
 
-    // Base mist inside the hatch.
+    // Base mist inside the glass.
     _drawEllipseFilledLocal(
-      center: Vector2(x: c.x, y: c.y + innerR * 0.06),
-      rx: innerR * 0.82,
-      ry: innerR * 0.32,
-      color: Color.fromRGBA(0.86, 0.93, 0.98, 0.24 * _steam),
+      center: Vector2(x: c.x, y: c.y + innerR * 0.07),
+      rx: innerR * 0.78,
+      ry: innerR * 0.28,
+      color: Color.fromRGBA(0.86, 0.93, 0.98, 0.18 * _steam),
       steps: 56,
     );
   }
 
-  void _drawSpinRotor(Vector2 c, double r) {
-    final speedN = (_spinSpeed / 5.5).clamp(0.0, 1.0);
-    if (speedN <= 0.04) return;
+  // ---------------------------------------------------------------------------
+  // Rotor / spin blur
+  // ---------------------------------------------------------------------------
 
-    final bladeCount = 3;
-    final hubR = r * (0.11 + speedN * 0.03);
-    final bladeLen = r * (0.64 + speedN * 0.08);
-    final w0 = r * (0.14 + speedN * 0.04);
-    final w1 = r * (0.06 + speedN * 0.02);
-    final bladeAlpha = 0.15 + speedN * 0.24;
+  void _drawSpinRotor(Vector2 c, double r) {
+    final speedN = (_spinSpeed / 5.2).clamp(0.0, 1.0);
+    if (speedN <= 0.035) return;
+
+    const bladeCount = 3;
+
+    final hubR = r * (0.10 + speedN * 0.025);
+    final bladeLen = r * (0.55 + speedN * 0.08);
+    final w0 = r * (0.115 + speedN * 0.035);
+    final w1 = r * (0.048 + speedN * 0.018);
+
+    final bladeAlpha = 0.10 + speedN * 0.20;
 
     for (int i = 0; i < bladeCount; i++) {
       final a = _drumAngle + i * (2.0 * math.pi / bladeCount);
@@ -422,27 +597,54 @@ class WasherHatch extends Node2D {
       final p2 = e - ortho * w1;
       final p3 = s - ortho * w0;
 
-      _drawQuad(p0, p1, p2, p3, Color.fromRGBA(0.76, 0.86, 0.97, bladeAlpha));
+      _drawQuad(
+        p0,
+        p1,
+        p2,
+        p3,
+        Color.fromRGBA(rotorCol.r, rotorCol.g, rotorCol.b, bladeAlpha),
+      );
     }
 
-    // Central cap and light blur ring to emphasize fast spin.
-    drawCircle(c, hubR, Color.fromRGBA(0.86, 0.93, 0.98, 0.28 + speedN * 0.20));
+    // Central cap.
+    drawCircle(
+      c,
+      hubR,
+      Color.fromRGBA(0.86, 0.93, 0.98, 0.22 + speedN * 0.16),
+    );
+
+    // Soft blur ring in spin state.
     _drawEllipseFilledLocal(
       center: c,
-      rx: r * 0.78,
-      ry: r * 0.66,
-      color: Color.fromRGBA(0.82, 0.90, 0.97, 0.03 + speedN * 0.08),
+      rx: r * 0.72,
+      ry: r * 0.62,
+      color: Color.fromRGBA(
+        rotorFastCol.r,
+        rotorFastCol.g,
+        rotorFastCol.b,
+        0.025 + speedN * 0.07,
+      ),
       steps: 48,
     );
   }
 
-  // --- helpers
-  void _drawQuad(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, Color c) {
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
+  void _drawQuad(
+    Vector2 p0,
+    Vector2 p1,
+    Vector2 p2,
+    Vector2 p3,
+    Color c,
+  ) {
     final pts = PackedVector2Array();
     pts.append(p0);
     pts.append(p1);
     pts.append(p2);
     pts.append(p3);
+
     drawColoredPolygon(pts, c);
   }
 
@@ -454,13 +656,16 @@ class WasherHatch extends Node2D {
     int steps = 64,
   }) {
     final pts = PackedVector2Array();
+
     for (int i = 0; i < steps; i++) {
-      final t = (i / steps) * (2.0 * math.pi);
+      final t = (i / steps) * 2.0 * math.pi;
+
       pts.append(Vector2(
         x: center.x + rx * math.cos(t),
         y: center.y + ry * math.sin(t),
       ));
     }
+
     drawColoredPolygon(pts, color);
   }
 }
