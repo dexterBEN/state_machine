@@ -53,7 +53,7 @@ The current system is split between the Zynq Processing System (PS), the Program
 
 The VHDL FSM runs in the FPGA and exposes its current state through a 4-bit `state_code` signal. This signal is connected to an AXI GPIO peripheral, which makes the value available to the ARM Cortex-A9 processor through a memory-mapped register.
 
-On the PYNQ-Z2 Linux side, a Python backend reads this AXI GPIO register using PYNQ MMIO. The backend decodes the raw state value, detects state transitions, and broadcasts the current FSM state to connected clients through a WebSocket server.
+On the PYNQ-Z2 Linux side, a Python backend reads this `AXI GPIO` register using `PYNQ MMIO`. The backend decodes the raw state value, detects state transitions, and broadcasts the current FSM state to connected clients through a WebSocket server.
 
 The Godot/Dart frontend connects to this WebSocket server and uses the received state updates to drive the washing machine visualization and animations.
 
