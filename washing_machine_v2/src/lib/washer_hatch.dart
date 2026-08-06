@@ -51,20 +51,11 @@ class WasherHatch extends Node2D {
   // Geometry
   // ---------------------------------------------------------------------------
 
-  /// Smaller than the previous value.
-  ///
-  /// Previous value: 92
-  /// New value: 78
-  ///
-  /// This makes the hatch closer to the Dribbble reference:
-  /// visible, but not oversized compared to the front face.
-  double outerRadius = 82.0;
+  /// Keeps the hatch visible without making it too heavy on the front face.
+  double outerRadius = 80.0;
 
-  /// Slightly thinner ring.
-  ///
-  /// Previous value: 16
-  /// New value: 14
-  double ringThickness = 14.0;
+  /// Slightly thinner ring for a softer pastel contour.
+  double ringThickness = 11.5;
 
   /// The local drawing is intentionally circular.
   ///
@@ -73,28 +64,28 @@ class WasherHatch extends Node2D {
   ///
   /// This keeps the hatch reusable and lets the body decide how much
   /// perspective/tilt to apply.
-  double glassInset = 2.0;
+  double glassInset = 4.0;
 
   // ---------------------------------------------------------------------------
   // Palette
   // ---------------------------------------------------------------------------
 
   // Pastel rim colors.
-  final Color rimShadow = Color.fromRGBA(0.38, 0.30, 0.52, 0.10);
-  final Color rimOuter = Color.fromRGBA(0.76, 0.70, 0.95, 1.0);
-  final Color rimSoft = Color.fromRGBA(0.88, 0.84, 0.99, 1.0);
-  final Color rimInner = Color.fromRGBA(0.66, 0.60, 0.84, 1.0);
-  final Color rimInnerLight = Color.fromRGBA(0.79, 0.76, 0.91, 1.0);
+  final Color rimShadow = Color.fromRGBA(0.38, 0.30, 0.52, 0.14);
+  final Color rimOuter = Color.fromRGBA(0.78, 0.71, 0.97, 1.0);
+  final Color rimSoft = Color.fromRGBA(0.91, 0.86, 1.0, 1.0);
+  final Color rimInner = Color.fromRGBA(0.61, 0.55, 0.80, 1.0);
+  final Color rimInnerLight = Color.fromRGBA(0.82, 0.78, 0.93, 1.0);
 
   // Glass colors.
-  final Color glassBase = Color.fromRGBA(0.56, 0.69, 0.80, 0.88);
-  final Color glassShade = Color.fromRGBA(0.34, 0.45, 0.56, 0.12);
-  final Color glassWash = Color.fromRGBA(0.88, 0.95, 1.0, 0.13);
+  final Color glassBase = Color.fromRGBA(0.57, 0.70, 0.81, 0.90);
+  final Color glassShade = Color.fromRGBA(0.25, 0.35, 0.47, 0.16);
+  final Color glassWash = Color.fromRGBA(0.90, 0.96, 1.0, 0.16);
 
   // Highlights.
-  final Color highlightA = Color.fromRGBA(0.96, 0.99, 1.0, 0.38);
-  final Color highlightB = Color.fromRGBA(0.98, 0.995, 1.0, 0.22);
-  final Color highlightC = Color.fromRGBA(0.96, 0.99, 1.0, 0.08);
+  final Color highlightA = Color.fromRGBA(0.96, 0.99, 1.0, 0.44);
+  final Color highlightB = Color.fromRGBA(0.98, 0.995, 1.0, 0.28);
+  final Color highlightC = Color.fromRGBA(0.96, 0.99, 1.0, 0.12);
 
   // Liquids / bubbles.
   final Color waterTop = Color.fromRGBA(0.64, 0.80, 0.92, 0.30);
@@ -275,7 +266,7 @@ class WasherHatch extends Node2D {
 
     // Soft cast shadow behind the door.
     _drawEllipseFilledLocal(
-      center: Vector2(x: 4.0, y: 5.5),
+      center: Vector2(x: 4.5, y: 5.8),
       rx: outerRadius * 1.03,
       ry: outerRadius * 0.91,
       color: rimShadow,
@@ -283,19 +274,33 @@ class WasherHatch extends Node2D {
     );
 
     // Main rim stack.
-    drawCircle(c, outerRadius, rimOuter);
-    drawCircle(c, outerRadius - 3.0, rimSoft);
-    drawCircle(c, innerR, rimInner);
-    drawCircle(c, innerR - 2.0, rimInnerLight);
+    drawCircle(c + Vector2(x: 0.9, y: 1.3), outerRadius, rimOuter);
+    drawCircle(c + Vector2(x: -1.4, y: -1.5), outerRadius - 3.2, rimSoft);
+    drawCircle(c + Vector2(x: 0.4, y: 0.4), outerRadius - 6.7, rimOuter);
+    drawCircle(c + Vector2(x: 1.0, y: 1.2), innerR + 1.2, rimInner);
+    drawCircle(c + Vector2(x: -0.8, y: -1.1), innerR - 0.4, rimInnerLight);
+    drawCircle(c, innerR - 2.8, Color.fromRGBA(0.72, 0.67, 0.89, 1.0));
 
     // Glass base.
     drawCircle(c, glassR, glassBase);
 
-    // Soft inner shade to avoid a flat circle.
+    // Soft inner shades to avoid a flat circle.
+    drawCircle(
+      c + Vector2(x: 7.0, y: 7.0),
+      glassR * 0.90,
+      Color.fromRGBA(0.22, 0.32, 0.44, 0.10),
+    );
+
     drawCircle(
       c + Vector2(x: -5.0, y: 3.0),
-      glassR * 0.86,
+      glassR * 0.78,
       glassShade,
+    );
+
+    drawCircle(
+      c + Vector2(x: -7.0, y: -7.0),
+      glassR * 0.54,
+      Color.fromRGBA(0.86, 0.95, 1.0, 0.10),
     );
 
     // Water and bubbles are drawn before the glass veil.
@@ -303,7 +308,7 @@ class WasherHatch extends Node2D {
     _drawBubbles(c, glassR - 10.0);
 
     // Slight glass veil above water/foam.
-    drawCircle(c, glassR - 4.0, glassWash);
+    drawCircle(c + Vector2(x: -1.5, y: -2.0), glassR - 4.0, glassWash);
 
     // Rotor / motion blur.
     _drawSpinRotor(c, glassR - 6.0);
@@ -475,9 +480,9 @@ class WasherHatch extends Node2D {
     final ortho = Vector2(x: -slant.y, y: slant.x);
 
     // Big reflection.
-    final base = c + Vector2(x: -r * 0.12, y: -r * 0.01);
-    final lenA = r * 0.78;
-    final wA = r * 0.11;
+    final base = c + Vector2(x: -r * 0.15, y: -r * 0.02);
+    final lenA = r * 0.82;
+    final wA = r * 0.12;
 
     final a0 = base + slant * (-lenA * 0.52) + ortho * wA;
     final a1 = base + slant * (lenA * 0.48) + ortho * wA;
@@ -487,9 +492,9 @@ class WasherHatch extends Node2D {
     _drawQuad(a0, a1, a2, a3, highlightA);
 
     // Thin reflection.
-    final base2 = base + Vector2(x: r * 0.28, y: -r * 0.07);
-    final lenB = r * 0.44;
-    final wB = r * 0.035;
+    final base2 = base + Vector2(x: r * 0.30, y: -r * 0.08);
+    final lenB = r * 0.48;
+    final wB = r * 0.040;
 
     final b0 = base2 + slant * (-lenB * 0.52) + ortho * wB;
     final b1 = base2 + slant * (lenB * 0.48) + ortho * wB;
@@ -499,9 +504,9 @@ class WasherHatch extends Node2D {
     _drawQuad(b0, b1, b2, b3, highlightB);
 
     // Very subtle third glint.
-    final base3 = base2 + Vector2(x: r * 0.07, y: -r * 0.01);
+    final base3 = base2 + Vector2(x: r * 0.08, y: -r * 0.015);
     final lenC = r * 0.34;
-    final wC = r * 0.022;
+    final wC = r * 0.024;
 
     final c0 = base3 + slant * (-lenC * 0.52) + ortho * wC;
     final c1 = base3 + slant * (lenC * 0.48) + ortho * wC;
