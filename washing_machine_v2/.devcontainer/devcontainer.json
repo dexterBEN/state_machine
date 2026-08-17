@@ -1,16 +1,14 @@
 {
     "name": "washing_machine_front",
     "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/washing_machine_v2,type=bind",
     "workspaceFolder": "/workspaces/washing_machine_v2",
-    // "mounts": [
-    //     "type=bind,source=${localWorkspaceFolder},target=/workspaces/washing_machine_v2"
-    // ],
     "customizations": {
         "vscode": {
             "extensions": [
                 "Dart-Code.dart-code",
                 "geequlim.godot-tools",
-                "ms-vscode.cpptools", //"dart-code.dart-code", 
+                "ms-vscode.cpptools",
                 "ms-vscode.cmake-tools",
                 "openai.chatgpt"
             ]
@@ -25,10 +23,7 @@
         "-v",
         "/tmp/.X11-unix:/tmp/.X11-unix"
     ],
-    // "mounts": [ 
-    //     "type=bind,source=${localWorkspaceFolder},target=/workspaces/${localWorkspaceFolderBasename}" 
-    // ],
     "containerEnv": {
-        "PUB_CACHE": "/workspaces/${localWorkspaceFolderBasename}/.pub-cache"
+        "PUB_CACHE": "/workspaces/washing_machine_v2/.pub-cache"
     }
 }
