@@ -4,6 +4,76 @@ import 'package:godot_dart/godot_dart.dart';
 
 part 'washer_body.g.dart';
 
+class WasherGeometry {
+  WasherGeometry({
+    required this.frontSize,
+    required this.depth,
+    required this.sceneOffset,
+    required this.topBandH,
+    required this.baseH,
+    required this.groundGap,
+    required this.frontTopSlope,
+    required this.frontRightLean,
+    required this.backTopExtraY,
+    required this.backBottomLeanX,
+    required this.backBottomExtraY,
+    required this.hatchX,
+    required this.hatchY,
+    required this.hatchTiltRad,
+    required this.hatchScale,
+  });
+
+  /// Compact front face, close to the Dribbble reference proportions.
+  final Vector2 frontSize;
+
+  /// The side face stays visible without dominating the body.
+  final Vector2 depth;
+
+  /// Scene centering adjustment.
+  final Vector2 sceneOffset;
+
+  /// Top control band height.
+  final double topBandH;
+
+  /// Small base thickness at the bottom.
+  final double baseH;
+
+  /// Gap between body and shadow.
+  final double groundGap;
+
+  /// Front top edge slope.
+  ///
+  /// This is what makes the front face less "flat rectangle" and more
+  /// pseudo-isometric.
+  final double frontTopSlope;
+
+  /// Small lean on the right vertical front edge.
+  final double frontRightLean;
+
+  /// Small corrections to make the back/right face feel less mechanical.
+  final double backTopExtraY;
+  final double backBottomLeanX;
+  final double backBottomExtraY;
+
+  /// Position expressed in normalized front-face coordinates.
+  ///
+  /// x = 0.0 left side of front face
+  /// x = 1.0 right side of front face
+  ///
+  /// y = 0.0 top of front face
+  /// y = 1.0 bottom of front face
+  final double hatchX;
+  final double hatchY;
+
+  /// Slight rotation to align the hatch with the fake perspective.
+  final double hatchTiltRad;
+
+  /// Scale applied to the WasherHatch child.
+  ///
+  /// This squashes the circular hatch into a front-face ellipse.
+  final Vector2 hatchScale;
+}
+
 @GodotScript()
 class WasherBody extends Node2D {
   @override
@@ -21,59 +91,23 @@ class WasherBody extends Node2D {
   // Global shape / isometric proportions
   // ---------------------------------------------------------------------------
 
-  /// Compact front face, close to the Dribbble reference proportions.
-  final Vector2 frontSize = Vector2(x: 290, y: 325);
-
-  /// The side face stays visible without dominating the body.
-  final Vector2 depth = Vector2(x: 82, y: -50);
-
-  /// Scene centering adjustment.
-  final Vector2 sceneOffset = Vector2(x: -10, y: -24);
-
-  /// Top control band height.
-  final double topBandH = 48;
-
-  /// Small base thickness at the bottom.
-  final double baseH = 7;
-
-  /// Gap between body and shadow.
-  final double groundGap = 8;
-
-  /// Front top edge slope.
-  ///
-  /// This is what makes the front face less "flat rectangle" and more
-  /// pseudo-isometric.
-  final double frontTopSlope = 7.0;
-
-  /// Small lean on the right vertical front edge.
-  final double frontRightLean = -2.0;
-
-  /// Small corrections to make the back/right face feel less mechanical.
-  final double backTopExtraY = 0.0;
-  final double backBottomLeanX = -2.0;
-  final double backBottomExtraY = 0.0;
-
-  // ---------------------------------------------------------------------------
-  // Hatch placement on the front face
-  // ---------------------------------------------------------------------------
-
-  /// Position expressed in normalized front-face coordinates.
-  ///
-  /// x = 0.0 left side of front face
-  /// x = 1.0 right side of front face
-  ///
-  /// y = 0.0 top of front face
-  /// y = 1.0 bottom of front face
-  final double hatchX = 0.40;
-  final double hatchY = 0.57;
-
-  /// Slight rotation to align the hatch with the fake perspective.
-  final double hatchTiltRad = -0.10;
-
-  /// Scale applied to the WasherHatch child.
-  ///
-  /// This squashes the circular hatch into a front-face ellipse.
-  final Vector2 hatchScale = Vector2(x: 0.93, y: 0.87);
+  final WasherGeometry geometry = WasherGeometry(
+    frontSize: Vector2(x: 290, y: 345),
+    depth: Vector2(x: 200, y: -50),
+    sceneOffset: Vector2(x: -10, y: -24),
+    topBandH: 62,
+    baseH: 7,
+    groundGap: 8,
+    frontTopSlope: 38.0,
+    frontRightLean: -2.0,
+    backTopExtraY: 0.0,
+    backBottomLeanX: -2.0,
+    backBottomExtraY: 0.0,
+    hatchX: 0.42,
+    hatchY: 0.61,
+    hatchTiltRad: -0.10,
+    hatchScale: Vector2(x: 1.05, y: 1.12),
+  );
 
   bool debugGeometry = false;
 
@@ -155,12 +189,12 @@ class WasherBody extends Node2D {
   // ---------------------------------------------------------------------------
 
   Vector2 getHatchCenterWorld() {
-    return frontPoint(hatchX, hatchY);
+    return frontPoint(geometry.hatchX, geometry.hatchY);
   }
 
-  double getHatchTiltRad() => hatchTiltRad;
+  double getHatchTiltRad() => geometry.hatchTiltRad;
 
-  Vector2 getHatchScale() => hatchScale;
+  Vector2 getHatchScale() => geometry.hatchScale;
 
   // ---------------------------------------------------------------------------
   // Layout
@@ -170,33 +204,33 @@ class WasherBody extends Node2D {
     final vp = getViewportRect().size;
     _lastVp = vp;
 
-    final totalW = frontSize.x + depth.x;
-    final totalH = frontSize.y + depth.y.abs();
+    final totalW = geometry.frontSize.x + geometry.depth.x;
+    final totalH = geometry.frontSize.y + geometry.depth.y.abs();
 
     final ox = (vp.x - totalW) * 0.5;
     final oy = (vp.y - totalH) * 0.5;
 
     A = Vector2(
-      x: ox + sceneOffset.x,
-      y: oy + depth.y.abs() + sceneOffset.y,
+      x: ox + geometry.sceneOffset.x,
+      y: oy + geometry.depth.y.abs() + geometry.sceneOffset.y,
     );
 
-    B = A + Vector2(x: frontSize.x, y: frontTopSlope);
-    C = B + Vector2(x: frontRightLean, y: frontSize.y);
-    D = A + Vector2(x: 0, y: frontSize.y);
+    B = A + Vector2(x: geometry.frontSize.x, y: geometry.frontTopSlope);
+    C = B + Vector2(x: geometry.frontRightLean, y: geometry.frontSize.y);
+    D = A + Vector2(x: 0, y: geometry.frontSize.y);
 
-    A2 = A + depth;
+    A2 = A + geometry.depth;
 
     B2 = B +
         Vector2(
-          x: depth.x,
-          y: depth.y + backTopExtraY,
+          x: geometry.depth.x,
+          y: geometry.depth.y + geometry.backTopExtraY,
         );
 
     C2 = C +
         Vector2(
-          x: depth.x + backBottomLeanX,
-          y: depth.y + backBottomExtraY,
+          x: geometry.depth.x + geometry.backBottomLeanX,
+          y: geometry.depth.y + geometry.backBottomExtraY,
         );
   }
 
@@ -278,7 +312,7 @@ class WasherBody extends Node2D {
   void _drawShadow() {
     final center = Vector2(
       x: (D.x + C2.x) * 0.5 + 18,
-      y: math.max(C.y, C2.y) + groundGap + 2,
+      y: math.max(C.y, C2.y) + geometry.groundGap + 2,
     );
 
     _drawEllipse(
@@ -428,7 +462,7 @@ class WasherBody extends Node2D {
   }
 
   void _drawBand() {
-    final t = (topBandH / frontSize.y).clamp(0.0, 1.0);
+    final t = (geometry.topBandH / geometry.frontSize.y).clamp(0.0, 1.0);
 
     final fL = frontPoint(0.0, t);
     final fR = frontPoint(1.0, t);
@@ -498,50 +532,50 @@ class WasherBody extends Node2D {
   }
 
   void _drawPanelDetails() {
-    final t = (topBandH / frontSize.y).clamp(0.0, 1.0);
+    final t = (geometry.topBandH / geometry.frontSize.y).clamp(0.0, 1.0);
 
     // Details are now positioned inside the band using normalized front coords,
     // instead of interpolating only on the lower band edge.
-    final detailY = t * 0.54;
+    final detailY = t * 0.52;
 
     // Knob.
     final knobC = frontPoint(0.42, detailY);
 
     drawCircle(
-      knobC + Vector2(x: 1.4, y: 1.7),
-      16.0,
+      knobC + Vector2(x: 1.2, y: 1.5),
+      13.4,
       Color.fromRGBA(0.48, 0.46, 0.68, 0.16),
     );
 
     drawCircle(
       knobC,
-      15.0,
+      12.6,
       Color.fromRGBA(0.97, 0.97, 0.992, 1.0),
     );
 
     drawCircle(
-      knobC + Vector2(x: 0.9, y: 1.0),
-      13.6,
+      knobC + Vector2(x: 0.7, y: 0.8),
+      11.4,
       Color.fromRGBA(0.90, 0.91, 0.955, 1.0),
     );
 
     drawCircle(
-      knobC + Vector2(x: -4.0, y: -3.8),
-      4.4,
+      knobC + Vector2(x: -3.2, y: -3.1),
+      3.4,
       Color.fromRGBA(1.0, 1.0, 1.0, 0.40),
     );
 
     drawLine(
-      knobC + Vector2(x: -3.0, y: -1.7),
-      knobC + Vector2(x: 5.4, y: 3.2),
+      knobC + Vector2(x: -2.4, y: -1.4),
+      knobC + Vector2(x: 4.5, y: 2.7),
       Color.fromRGBA(0.56, 0.56, 0.68, 0.84),
-      width: 2.1,
+      width: 1.8,
       antialiased: true,
     );
 
     // Display panel.
-    final panelW = 66.0;
-    final panelH = 31.0;
+    final panelW = 68.0;
+    final panelH = 34.0;
     final panelC = frontPoint(0.69, detailY);
 
     _drawRoundedRect(
@@ -596,7 +630,7 @@ class WasherBody extends Node2D {
   }
 
   void _drawSeams() {
-    final t = (topBandH / frontSize.y).clamp(0.0, 1.0);
+    final t = (geometry.topBandH / geometry.frontSize.y).clamp(0.0, 1.0);
 
     final fL = frontPoint(0.0, t);
     final fR = frontPoint(1.0, t);
