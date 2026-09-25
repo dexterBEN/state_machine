@@ -85,3 +85,5 @@ The current state encoding is:
 
 https://github.com/user-attachments/assets/21aa9df7-122b-413c-b344-21ffcb42ca82
 
+![](2026-09-25 18-00-07.mp4)
+
