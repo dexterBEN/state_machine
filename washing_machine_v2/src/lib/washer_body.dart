@@ -7,6 +7,7 @@ part 'washer_body.g.dart';
 class WasherGeometry {
   WasherGeometry({
     required this.frontSize,
+    required this.frontPlaneWidth,
     required this.depth,
     required this.sceneOffset,
     required this.topBandH,
@@ -19,12 +20,13 @@ class WasherGeometry {
     required this.backBottomExtraY,
     required this.hatchX,
     required this.hatchY,
-    required this.hatchTiltRad,
-    required this.hatchScale,
   });
 
   /// Compact front face, close to the Dribbble reference proportions.
   final Vector2 frontSize;
+
+  /// Width before projection, in the same units as the hatch radius.
+  final double frontPlaneWidth;
 
   /// The side face stays visible without dominating the body.
   final Vector2 depth;
@@ -64,14 +66,6 @@ class WasherGeometry {
   /// y = 1.0 bottom of front face
   final double hatchX;
   final double hatchY;
-
-  /// Slight rotation to align the hatch with the fake perspective.
-  final double hatchTiltRad;
-
-  /// Scale applied to the WasherHatch child.
-  ///
-  /// This squashes the circular hatch into a front-face ellipse.
-  final Vector2 hatchScale;
 }
 
 @GodotScript()
@@ -92,21 +86,20 @@ class WasherBody extends Node2D {
   // ---------------------------------------------------------------------------
 
   final WasherGeometry geometry = WasherGeometry(
-    frontSize: Vector2(x: 290, y: 345),
-    depth: Vector2(x: 200, y: -50),
-    sceneOffset: Vector2(x: -10, y: -24),
+    frontSize: Vector2(x: 246, y: 310),
+    frontPlaneWidth: 270,
+    depth: Vector2(x: 190, y: -40),
+    sceneOffset: Vector2(x: 8, y: 40),
     topBandH: 62,
     baseH: 7,
     groundGap: 8,
-    frontTopSlope: 38.0,
-    frontRightLean: -2.0,
+    frontTopSlope: 40.0,
+    frontRightLean: 0.0,
     backTopExtraY: 0.0,
-    backBottomLeanX: -2.0,
-    backBottomExtraY: 0.0,
-    hatchX: 0.42,
-    hatchY: 0.61,
-    hatchTiltRad: -0.10,
-    hatchScale: Vector2(x: 1.05, y: 1.12),
+    backBottomLeanX: 0.0,
+    backBottomExtraY: -12.0,
+    hatchX: 0.44,
+    hatchY: 0.575,
   );
 
   bool debugGeometry = false;
@@ -188,13 +181,24 @@ class WasherBody extends Node2D {
   // Public helpers for WasherHatch
   // ---------------------------------------------------------------------------
 
-  Vector2 getHatchCenterWorld() {
-    return frontPoint(geometry.hatchX, geometry.hatchY);
+  /// Projects the hatch's circular local geometry onto the front face.
+  /// All hatch children inherit this transform, including water and reflections.
+  Transform2D getHatchTransformWorld() {
+    _ensureLayout();
+    final x = geometry.hatchX;
+    final y = geometry.hatchY;
+    final center = frontPoint(x, y);
+    final horizontal =
+        (_lerp(B, C, y) - _lerp(A, D, y)) / geometry.frontPlaneWidth;
+    final vertical = (_lerp(D, C, x) - _lerp(A, B, x)) / geometry.frontSize.y;
+    final origin = toGlobal(center);
+
+    return Transform2D.fromXAxisYAxisOrigin(
+      toGlobal(center + horizontal) - origin,
+      toGlobal(center + vertical) - origin,
+      origin,
+    );
   }
-
-  double getHatchTiltRad() => geometry.hatchTiltRad;
-
-  Vector2 getHatchScale() => geometry.hatchScale;
 
   // ---------------------------------------------------------------------------
   // Layout
@@ -205,7 +209,8 @@ class WasherBody extends Node2D {
     _lastVp = vp;
 
     final totalW = geometry.frontSize.x + geometry.depth.x;
-    final totalH = geometry.frontSize.y + geometry.depth.y.abs();
+    final totalH =
+        geometry.frontSize.y + geometry.frontTopSlope + geometry.depth.y.abs();
 
     final ox = (vp.x - totalW) * 0.5;
     final oy = (vp.y - totalH) * 0.5;
@@ -250,7 +255,7 @@ class WasherBody extends Node2D {
   // Front-face coordinate system
   // ---------------------------------------------------------------------------
 
-  /// Converts normalized coordinates on the front face to a world/local point.
+  /// Converts normalized front-face coordinates to a point local to this body.
   ///
   /// x: 0.0 = left edge, 1.0 = right edge
   /// y: 0.0 = top edge,  1.0 = bottom edge
