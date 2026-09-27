@@ -102,6 +102,13 @@ class WasherBody extends Node2D {
     hatchY: 0.575,
   );
 
+  /// Distance trimmed along the edges at each upper corner, in canvas units.
+  double topCornerTrim = 8.0;
+
+  /// Visible thickness of the lid and width of its front/right corner bevel.
+  double lidEdgeHeight = 6.0;
+  double lidCornerWidth = 4.0;
+
   bool debugGeometry = false;
 
   // ---------------------------------------------------------------------------
@@ -158,15 +165,12 @@ class WasherBody extends Node2D {
 
     _drawShadow();
 
-    // Draw order matters.
-    // The right face is behind the front face.
-    // The top face is drawn after both to sit visually above the cabinet.
+    // The lid and its shared bevel cover the upper joins of the cabinet faces.
     _drawRight();
     _drawFront();
-    _drawTop();
-
     _drawFrontVolume();
     _drawBand();
+    _drawTop();
     _drawPanelDetails();
 
     _drawBase();
@@ -345,6 +349,7 @@ class WasherBody extends Node2D {
       Color.fromRGBA(0.68, 0.72, 0.76, 1.0),
       Color.fromRGBA(0.70, 0.74, 0.78, 1.0),
       Color.fromRGBA(0.79, 0.81, 0.85, 1.0),
+      roundedCorners: const {0},
     );
 
     // Soft rear shade inside the right face.
@@ -385,47 +390,67 @@ class WasherBody extends Node2D {
       Color.fromRGBA(0.965, 0.966, 0.982, 1.0),
       Color.fromRGBA(0.935, 0.945, 0.962, 1.0),
       Color.fromRGBA(0.982, 0.982, 0.992, 1.0),
+      roundedCorners: const {0},
     );
   }
 
   void _drawTop() {
+    final down = Vector2(x: 0, y: lidEdgeHeight);
+    final alongFront = (A - B).normalized();
+    final alongSide = (B2 - B).normalized();
+
+    // Every face uses these same corner points, so the central join stays closed.
+    final cornerFront = B + alongFront * lidCornerWidth;
+    final cornerRight = B + alongSide * lidCornerWidth;
+    final lowerFront = cornerFront + down;
+    final lowerRight = cornerRight + down;
+    final left = A + alongSide * 3.0;
+    final rearTop = B2 + alongFront * 3.0;
+    final rearSide = B2 - alongSide * 3.0;
+
+    // Carry the narrow corner face down through the control band.
+    final bandT = (geometry.topBandH / geometry.frontSize.y).clamp(0.0, 1.0);
+    final bandCorner = frontPoint(1.0, bandT);
     _drawQuadGradient(
+      lowerFront,
+      lowerRight,
+      bandCorner + alongSide * lidCornerWidth,
+      bandCorner + alongFront * lidCornerWidth,
+      Color.fromRGBA(0.81, 0.78, 0.93, 1.0),
+      Color.fromRGBA(0.72, 0.71, 0.86, 1.0),
+      Color.fromRGBA(0.72, 0.71, 0.86, 1.0),
+      Color.fromRGBA(0.81, 0.78, 0.93, 1.0),
+    );
+
+    // Light front lip and shaded right lip meet on a small, explicit bevel.
+    _drawQuad(left, cornerFront, lowerFront, A + down,
+        Color.fromRGBA(0.94, 0.90, 0.985, 1.0));
+    _drawQuad(cornerRight, rearSide, B2 + down, lowerRight,
+        Color.fromRGBA(0.77, 0.75, 0.89, 1.0));
+    _drawQuadGradient(
+      cornerFront,
+      cornerRight,
+      lowerRight,
+      lowerFront,
+      Color.fromRGBA(0.91, 0.87, 0.97, 1.0),
+      Color.fromRGBA(0.82, 0.80, 0.92, 1.0),
+      Color.fromRGBA(0.79, 0.77, 0.90, 1.0),
+      Color.fromRGBA(0.88, 0.84, 0.95, 1.0),
+    );
+
+    // A uniform top with clipped corners shares its boundary with both lips.
+    final surface = PackedVector2Array();
+    for (final point in [
+      left,
       A2,
-      B2,
-      B,
-      A,
-      Color.fromRGBA(0.94, 0.915, 0.985, 1.0),
-      Color.fromRGBA(0.90, 0.89, 0.965, 1.0),
-      Color.fromRGBA(0.985, 0.965, 1.0, 1.0),
-      Color.fromRGBA(0.995, 0.982, 1.0, 1.0),
-    );
-
-    // Top front highlight edge.
-    drawLine(
-      A + Vector2(x: 5, y: 1.0),
-      B + Vector2(x: -7, y: 1.0),
-      Color.fromRGBA(1.0, 1.0, 1.0, 0.38),
-      width: 2.0,
-      antialiased: true,
-    );
-
-    // Top rear subtle darker edge.
-    drawLine(
-      A2 + Vector2(x: 4, y: 1),
-      B2 + Vector2(x: -4, y: 1),
-      Color.fromRGBA(0.68, 0.65, 0.82, 0.08),
-      width: 1.2,
-      antialiased: true,
-    );
-
-    // Very soft top sheen.
-    _drawQuad(
-      topFacePoint(0.05, 0.15),
-      topFacePoint(0.94, 0.15),
-      topFacePoint(0.88, 0.30),
-      topFacePoint(0.10, 0.30),
-      Color.fromRGBA(1.0, 1.0, 1.0, 0.13),
-    );
+      rearTop,
+      rearSide,
+      cornerRight,
+      cornerFront
+    ]) {
+      surface.append(point);
+    }
+    drawColoredPolygon(surface, Color.fromRGBA(0.985, 0.96, 0.995, 1.0));
   }
 
   void _drawFrontVolume() {
@@ -456,9 +481,9 @@ class WasherBody extends Node2D {
       Color.fromRGBA(0.78, 0.82, 0.86, 0.075),
     );
 
-    // Left soft shade to avoid an overly flat front face.
+    // Start below the rounded corner so this shade cannot restore a sharp tip.
     _drawQuad(
-      A,
+      A + Vector2(x: 0, y: topCornerTrim),
       frontPoint(0.055, 0.00),
       frontPoint(0.055, 0.96),
       D,
@@ -483,6 +508,7 @@ class WasherBody extends Node2D {
       Color.fromRGBA(0.75, 0.72, 0.90, 1.0),
       Color.fromRGBA(0.70, 0.68, 0.86, 1.0),
       Color.fromRGBA(0.82, 0.78, 0.94, 1.0),
+      roundedCorners: const {0},
     );
 
     // Right band.
@@ -495,27 +521,7 @@ class WasherBody extends Node2D {
       Color.fromRGBA(0.52, 0.56, 0.74, 1.0),
       Color.fromRGBA(0.62, 0.65, 0.83, 1.0),
       Color.fromRGBA(0.67, 0.69, 0.86, 1.0),
-    );
-
-    // Small cap on the top surface.
-    _drawQuadGradient(
-      topFacePoint(0.00, 0.13),
-      topFacePoint(1.00, 0.13),
-      topFacePoint(1.00, 0.27),
-      topFacePoint(0.00, 0.27),
-      Color.fromRGBA(0.93, 0.89, 0.99, 1.0),
-      Color.fromRGBA(0.88, 0.86, 0.97, 1.0),
-      Color.fromRGBA(0.91, 0.88, 0.98, 1.0),
-      Color.fromRGBA(0.96, 0.92, 0.995, 1.0),
-    );
-
-    // Soft upper glow so the band reads less flat.
-    _drawQuad(
-      frontPoint(0.02, 0.015),
-      frontPoint(0.98, 0.015),
-      frontPoint(0.97, t * 0.34),
-      frontPoint(0.03, t * 0.34),
-      Color.fromRGBA(1.0, 1.0, 1.0, 0.12),
+      roundedCorners: const {0},
     );
 
     // Band lower highlight.
@@ -641,33 +647,9 @@ class WasherBody extends Node2D {
     final fR = frontPoint(1.0, t);
     final rB = rightFacePoint(t, 1.0);
 
-    // Top/front edges.
+    // The lid already provides the upper border; seams begin below its corners.
     drawLine(
-      A,
-      B,
-      Color.fromRGBA(1.0, 1.0, 1.0, 0.14),
-      width: 1.0,
-      antialiased: true,
-    );
-
-    drawLine(
-      A2,
-      B2,
-      Color.fromRGBA(0.95, 0.95, 1.0, 0.11),
-      width: 0.9,
-      antialiased: true,
-    );
-
-    drawLine(
-      B2,
-      B,
-      Color.fromRGBA(0.98, 0.99, 1.0, 0.11),
-      width: 0.9,
-      antialiased: true,
-    );
-
-    drawLine(
-      B2,
+      B2 + Vector2(x: 0, y: topCornerTrim),
       C2,
       Color.fromRGBA(0.88, 0.90, 0.96, 0.13),
       width: 0.9,
@@ -682,9 +664,9 @@ class WasherBody extends Node2D {
       antialiased: true,
     );
 
-    // Front/right edge.
+    // The control band has a bevel; the single cabinet seam starts below it.
     drawLine(
-      B,
+      fR,
       C,
       Color.fromRGBA(1.0, 1.0, 1.0, 0.20),
       width: 1.0,
@@ -791,22 +773,65 @@ class WasherBody extends Node2D {
     Color c0,
     Color c1,
     Color c2,
-    Color c3,
-  ) {
+    Color c3, {
+    Set<int> roundedCorners = const {},
+  }) {
+    final vertices = [p0, p1, p2, p3];
+    final colors = [c0, c1, c2, c3];
     final pts = PackedVector2Array();
-    pts.append(p0);
-    pts.append(p1);
-    pts.append(p2);
-    pts.append(p3);
-
     final cols = PackedColorArray();
-    cols.append(c0);
-    cols.append(c1);
-    cols.append(c2);
-    cols.append(c3);
+    const cornerSteps = 8;
 
+    for (int i = 0; i < 4; i++) {
+      final corner = vertices[i];
+      if (!roundedCorners.contains(i) || topCornerTrim <= 0) {
+        pts.append(corner);
+        cols.append(colors[i]);
+        continue;
+      }
+
+      final previous = (i + 3) % 4;
+      final next = (i + 1) % 4;
+      final incoming = vertices[previous] - corner;
+      final outgoing = vertices[next] - corner;
+      final inLength =
+          math.sqrt(incoming.x * incoming.x + incoming.y * incoming.y);
+      final outLength =
+          math.sqrt(outgoing.x * outgoing.x + outgoing.y * outgoing.y);
+      final trim =
+          math.min(topCornerTrim, math.min(inLength, outLength) * 0.25);
+      if (trim <= 0) {
+        pts.append(corner);
+        cols.append(colors[i]);
+        continue;
+      }
+
+      final start = _lerp(corner, vertices[previous], trim / inLength);
+      final end = _lerp(corner, vertices[next], trim / outLength);
+      final startColor =
+          _lerpColor(colors[i], colors[previous], trim / inLength);
+      final endColor = _lerpColor(colors[i], colors[next], trim / outLength);
+
+      // Quadratic curves stay inside each face and meet its straight edges.
+      for (int step = 0; step <= cornerSteps; step++) {
+        final t = step / cornerSteps;
+        pts.append(_lerp(_lerp(start, corner, t), _lerp(corner, end, t), t));
+        cols.append(_lerpColor(
+          _lerpColor(startColor, colors[i], t),
+          _lerpColor(colors[i], endColor, t),
+          t,
+        ));
+      }
+    }
     drawPolygon(pts, cols);
   }
+
+  Color _lerpColor(Color a, Color b, double t) => Color.fromRGBA(
+        a.r + (b.r - a.r) * t,
+        a.g + (b.g - a.g) * t,
+        a.b + (b.b - a.b) * t,
+        a.a + (b.a - a.a) * t,
+      );
 
   void _drawEllipse(Vector2 c, double rx, double ry, Color col) {
     const steps = 72;

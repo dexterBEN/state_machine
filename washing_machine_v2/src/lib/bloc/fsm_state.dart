@@ -1,4 +1,4 @@
-import 'model.dart';
+import '../domain/wash_state.dart';
 
 class FsmState {
   final bool connected;
@@ -15,14 +15,11 @@ class FsmState {
     bool? connected,
     WashState? washState,
     String? lastError,
-  }) => FsmState(
-    connected: connected ?? this.connected, 
-    washState: washState ?? this.washState, 
-    lastError: lastError
-  );
+  }) =>
+      FsmState(
+          connected: connected ?? this.connected,
+          washState: washState ?? this.washState,
+          lastError: lastError);
 
-  static const initial = FsmState(
-    connected: false,
-    washState: WashState.idle
-  );
+  static const initial = FsmState(connected: false, washState: WashState.idle);
 }

@@ -1,69 +1,85 @@
-import 'dart:convert';
+import 'dart:async';
 
 import 'package:bloc/bloc.dart';
+
+import '../repository/washer_repository.dart';
 import 'fsm_state.dart';
 import 'fsm_event.dart';
-import 'model.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
 
 class FsmBloc extends Bloc<FsmEvent, FsmState> {
-  final String wsUrl;
-  WebSocketChannel? _channel;
+  final WasherRepository _repository;
+  late final StreamSubscription<WasherUpdate> _repositorySubscription;
+  Future<void>? _closeFuture;
+  bool _isClosing = false;
 
-  FsmBloc({required this.wsUrl}) : super(FsmState.initial) {
-    on<ConnectRequested>(_onConnect);
-    on<DisconnectRequested>(_onDisconnect);
+  /// Owns this repository and closes it when the BLoC is closed.
+  FsmBloc({required WasherRepository repository})
+      : _repository = repository,
+        super(FsmState.initial) {
+    on<ConnectRequested>(
+        (event, emit) => _connectionOperation(_repository.connect, emit));
+    on<DisconnectRequested>(
+        (event, emit) => _connectionOperation(_repository.disconnect, emit));
+    on<StartPressed>((event, emit) => _command(_repository.start, emit));
+    on<ResetPressed>((event, emit) => _command(_repository.reset, emit));
+    on<_RepositoryUpdated>(_onRepositoryUpdate);
 
-    on<StartPressed>(_onStartPressed);
-    on<ResetPressed>(_onResetPressed);
-
-    on<RawMessageReceived>(_onRawMessage);
+    _repositorySubscription = _repository.updates.listen((update) {
+      if (!_isClosing) add(_RepositoryUpdated(update));
+    });
   }
 
-  void _sendCmd(String cmd) {
-    _channel?.sink.add(cmd);
-  }
-
-  void _onStartPressed(StartPressed e, Emitter<FsmState> emit) {
-    if (!state.connected) return;
-    _sendCmd("START");
-  }
-
-  void _onResetPressed(ResetPressed e, Emitter<FsmState> emit) {
-    if (!state.connected) return;
-    _sendCmd("RESET");
-  }
-
-  void _onRawMessage(RawMessageReceived e, Emitter<FsmState> emit) {
+  Future<void> _connectionOperation(
+    Future<void> Function() operation,
+    Emitter<FsmState> emit,
+  ) async {
+    if (_isClosing) return;
     try {
-      final obj = jsonDecode(e.raw) as Map<String, dynamic>;
-      if (obj["type"] == "state") {
-        final v = obj["value"] as String;
-        emit(state.copyWith(washState: parseWashState(v)));
+      await operation();
+    } catch (error) {
+      if (!_isClosing) {
+        emit(state.copyWith(connected: false, lastError: error.toString()));
       }
-    } catch (_) {
-      emit(state.copyWith(washState: parseWashState(e.raw.trim())));
     }
   }
 
-  Future<void> _onConnect(ConnectRequested e, Emitter<FsmState> emit) async {
+  void _command(void Function() command, Emitter<FsmState> emit) {
+    if (_isClosing || !state.connected) return;
     try {
-      _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
-      emit(state.copyWith(connected: true));
-
-      _channel!.stream.listen(
-        (msg) => add(RawMessageReceived(msg as String)),
-        onError: (_) => add(DisconnectRequested()),
-        onDone: () => add(DisconnectRequested()),
-      );
-    } catch (err) {
-      emit(state.copyWith(connected: false, lastError: err.toString()));
+      command();
+    } catch (error) {
+      emit(state.copyWith(lastError: error.toString()));
     }
   }
 
-  Future<void> _onDisconnect(DisconnectRequested e, Emitter<FsmState> emit) async {
-    _channel?.sink.close();
-    _channel = null;
-    emit(state.copyWith(connected: false));
+  void _onRepositoryUpdate(_RepositoryUpdated event, Emitter<FsmState> emit) {
+    if (_isClosing) return;
+    switch (event.update) {
+      case WasherConnectionChanged(:final connected, :final error):
+        emit(state.copyWith(connected: connected, lastError: error));
+      case WasherStateReceived(:final state):
+        emit(this.state.copyWith(washState: state));
+      case WasherFailure(:final message):
+        emit(state.copyWith(lastError: message));
+    }
   }
+
+  Future<void> _dispose() async {
+    try {
+      await _repositorySubscription.cancel();
+    } finally {
+      await _repository.close();
+    }
+  }
+
+  @override
+  Future<void> close() {
+    _isClosing = true;
+    return _closeFuture ??= _dispose().whenComplete(() => super.close());
+  }
+}
+
+final class _RepositoryUpdated extends FsmEvent {
+  final WasherUpdate update;
+  _RepositoryUpdated(this.update);
 }
