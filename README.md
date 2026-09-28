@@ -83,7 +83,4 @@ The current state encoding is:
 
 ## Sample (Demo)
 
-https://github.com/user-attachments/assets/21aa9df7-122b-413c-b344-21ffcb42ca82
-
-![Video](2026-09-25 18-00-07.mp4)
-
+https://github.com/user-attachments/assets/7d36769a-2c94-49e2-b12e-3c3bfcc04427
