@@ -83,7 +83,7 @@ The current state encoding is:
 
 ## Sample (Demo)
 
-https://github.com/user-attachments/assets/21aa9df7-122b-413c-b344-21ffcb42ca82
+![architecture drawing](./washing_machine_v2/FSM_washing_machine_28_09_2026_01_51_22.png)
 
 ![Video](2026-09-25 18-00-07.mp4)
 
