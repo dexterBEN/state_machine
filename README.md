@@ -47,7 +47,7 @@ DONE
 
 ## Current Architecture
 
-<img width="1600" height="951" alt="image" src="https://github.com/user-attachments/assets/6fbbdf95-37f6-4c39-a57b-1d39f1905668" />
+![Video](washing_machine_v2/FSM_washing_machine_28_09_2026_01_51_22.png)
 
 The current system is split between the Zynq Processing System (PS), the Programmable Logic (PL), and an external Godot/Dart frontend using [godot_dart_package](https://github.com/fuzzybinary/godot_dart).
 
