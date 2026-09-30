@@ -1,6 +1,6 @@
 # Washing Machine FSM on PYNQ-Z2
 
-A learning project focused on FPGA, VHDL and embedded systems concepts using the [PYNQ-Z2](https://pynq.readthedocs.io/en/v2.6.1/getting_started/pynq_z2_setup.html) board.
+A learning project focused on FPGA, VHDL and embedded systems concepts using the [PYNQ-Z2](https://pynq.readthedocs.io/en/latest/) board.
 
 The goal of this project is to progressively rebuild and modernize knowledge acquired during university, especially around:
 
