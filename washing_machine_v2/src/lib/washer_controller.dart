@@ -27,7 +27,7 @@ class WasherController extends Node {
       : super.withNonNullOwner(owner);
 
   // websocket IP
-  String wsUrl = 'ws://192.168.200.107:8765';
+  String wsUrl = 'ws://192.168.200.106:8765';
 
   NodePath hatchPath = NodePath.fromString('../WasherHatch');
 
