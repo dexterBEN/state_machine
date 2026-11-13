@@ -80,6 +80,49 @@ The current state encoding is:
 ```
 
 ---
+## Hardware Design (Vivado)
+
+The hardware design was developed using **AMD Vivado 2024.1** and targets the **PYNQ-Z2 board**, based on the Zynq-7000 SoC.
+
+The design integrates a custom VHDL finite state machine with the Zynq Processing System through an AXI-based memory-mapped interface.
+
+### Vivado Block Design
+
+<img width="2047" height="917" alt="image" src="https://github.com/user-attachments/assets/748b66c8-805f-4e36-b972-f1ad85133720" />
+
+
+The block design contains the following components:
+
+| Component | Responsibility |
+|---|---|
+| `processing_system7_0` | Zynq Processing System running Linux |
+| `ps7_0_axi_periph` | AXI interconnect between the PS and AXI peripherals |
+| `rst_ps7_0_50M` | Processor system reset infrastructure |
+| `axi_gpio_0` | Exposes the FSM state to the PS |
+| `washer_fsm_0` | Custom VHDL washing machine finite state machine |
+
+The FSM exposes a 4-bit `state_code[3:0]` output connected to the AXI GPIO peripheral.
+
+The Python application running on the ARM processor reads the state through a memory-mapped register using PYNQ MMIO.
+
+### Synthesis
+
+<img width="2048" height="918" alt="image" src="https://github.com/user-attachments/assets/573494ed-8d8c-4300-b608-1361ae4104da" />
+
+
+The synthesized design exposes the following external signals:
+
+- `start_0`: FSM start input.
+- `fill_valve_0`: simulated water inlet valve output.
+- `motor_0`: simulated motor output.
+- `pump_0`: simulated drainage pump output.
+- `done_led_0`: washing cycle completion indicator.
+
+These signals represent the simplified washing machine's hardware controls and status outputs.
+
+The FPGA bitstream is generated using Vivado and deployed to the PYNQ-Z2 for hardware execution and validation.
+
+---
 
 ## Sample (Demo)
 
