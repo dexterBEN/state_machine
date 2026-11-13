@@ -118,6 +118,9 @@ class WasherHatch extends Node2D {
   double _targetFoam = 0.0;
   double foamEaseK = 6.0;
 
+  /// Continuous visual flow, independent of the drum's alternating rotation.
+  double _swirlAngle = 0.0;
+
   /// Steam/mist amount from 0 to roughly 1.
   double _steam = 0.0;
   double _targetSteam = 0.0;
@@ -265,6 +268,8 @@ class WasherHatch extends Node2D {
     // Smooth foam.
     final af = 1.0 - math.exp(-foamEaseK * delta);
     _foam = _foam + (_targetFoam - _foam) * af;
+    final swirlActivity = (_foam / 0.32).clamp(0.0, 1.0).toDouble();
+    _swirlAngle = (_swirlAngle + delta * 1.15 * swirlActivity) % (2.0 * math.pi);
 
     // Smooth steam.
     final as = 1.0 - math.exp(-steamEaseK * delta);
@@ -594,6 +599,11 @@ class WasherHatch extends Node2D {
       Variant(debugWaterShaderExaggerated),
     );
     material.setShaderParameter('fill_level', Variant(level));
+    material.setShaderParameter(
+      'foam_amount',
+      Variant(_foam.clamp(0.0, 1.0).toDouble()),
+    );
+    material.setShaderParameter('swirl_angle', Variant(_swirlAngle));
     material.setShaderParameter('wave_amplitude', Variant(amplitude));
     material.setShaderParameter('wave_frequency', Variant(frequency));
     material.setShaderParameter('wave_speed', Variant(speed));
@@ -850,13 +860,10 @@ class WasherHatch extends Node2D {
     for (int i = 0; i < n; i++) {
       if (i >= _bubbleLayers.length) break;
 
-      final a = (i * 1.62) + _t * 0.36;
-      final rise = (_t * 0.16 + i * 0.19) % 1.0;
-      final px = c.x +
-          math.cos(a) * r * (0.18 + (i % 3) * 0.10) +
-          math.sin(_t * 0.42 + i) * 1.8;
-      final py =
-          c.y + r * 0.26 - rise * r * 0.58 + math.sin(a * 1.12) * r * 0.045;
+      final a = _swirlAngle + i * 2.4;
+      final orbit = r * (0.25 + (i % 3) * 0.20);
+      final px = c.x + math.cos(a) * orbit;
+      final py = c.y + math.sin(a) * orbit;
 
       final rad = 2.4 + (i % 3) * 1.35;
       final alpha = 0.095 + foam * 0.16;
