@@ -43,6 +43,79 @@ SPIN
 DONE
 ```
 
+```mermaid
+stateDiagram-v2
+    direction TB
+
+    [*] --> IDLE
+
+    state "IDLE" as IDLE
+    state "FILL" as FILL
+    state "WASH" as WASH
+    state "RINSE" as RINSE
+    state "SPIN" as SPIN
+    state "DONE" as DONE
+
+    IDLE --> FILL: START rising edge
+    FILL --> WASH: counter >= 3
+    WASH --> RINSE: counter >= 5
+    RINSE --> SPIN: counter >= 4
+    SPIN --> DONE: counter >= 4
+    DONE --> IDLE: counter >= 3
+
+    FILL --> IDLE: RESET = 0
+    WASH --> IDLE: RESET = 0
+    RINSE --> IDLE: RESET = 0
+    SPIN --> IDLE: RESET = 0
+    DONE --> IDLE: RESET = 0
+
+    note right of IDLE
+        State code: 0000
+        LEDs: 0000
+        Wait for START
+    end note
+
+    note right of FILL
+        State code: 0001
+        LEDs: 0001
+        Fill valve active
+    end note
+
+    note right of WASH
+        State code: 0010
+        LEDs: 0010
+        Motor active
+    end note
+
+    note right of RINSE
+        State code: 0011
+        LEDs: 0100
+        Pump active
+    end note
+
+    note right of SPIN
+        State code: 0100
+        LEDs: 1000
+        Done LED active
+    end note
+
+    note right of DONE
+        State code: 0101
+        LEDs: 1111
+        All outputs active
+    end note
+
+    classDef idle fill:#FFF4D6,stroke:#B78B37,color:#222;
+    classDef active fill:#E2F3DF,stroke:#478A56,color:#222;
+    classDef spin fill:#FCE7D9,stroke:#C67C43,color:#222;
+    classDef done fill:#E9DDF8,stroke:#8967B4,color:#222;
+
+    class IDLE idle
+    class FILL,WASH,RINSE active
+    class SPIN spin
+    class DONE done
+```
+
 ---
 
 ## Current Architecture
